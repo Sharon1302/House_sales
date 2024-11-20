@@ -1,0 +1,55 @@
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+
+df = pd.read_csv('house_sales.csv')
+missing_city= df['city'].value_counts()['--']
+missing_city
+
+df['area'] = df['area'].astype(str).str.replace(' sq.m.', '').astype(float)
+df['city'].replace('--', 'Unknown', inplace=True)
+df.dropna(subset=['sale_price'], inplace=True)
+df['sale_date'].fillna('2023-01-01', inplace=True)
+df['months_listed'].fillna(df['months_listed'].mean().round(1), inplace=True)
+df['bedrooms'].fillna(df['bedrooms'].mean().round(), inplace=True)
+df['house_type'].replace({'Det.': 'Detached', 'Semi': 'Semi-detached', 'Terr.': 'Terraced'}, 
+inplace=True)
+df['house_type'].fillna(df['house_type'].mode()[0], inplace=True)
+df['area'].fillna(df['area'].mean().round(1), inplace=True)
+df['sale_price'] = df['sale_price'].astype(int)
+df['bedrooms'] = df['bedrooms'].astype(int)
+clean_data = df
+clean_data.head()
+
+price_by_rooms = df.groupby('bedrooms').agg(avg_price = ('sale_price', 'mean'),
+                                           var_price =('sale_price', 'var')
+                                           ).reset_index()
+price_by_rooms ['avg_price'] = price_by_rooms['avg_price'].round(1)
+price_by_rooms['var_price']=price_by_rooms['var_price'].round(1)
+price_by_rooms
+
+train = pd.read_csv('train.csv')
+validation = pd.read_csv('validation.csv')
+city_mapping = {'Teasdale': 0, 'Silvertown': 1, 'Poppleton': 2, 'Riverford': 3}
+house_type_mapping = {'Detached': 0, 'Semi-detached': 1, 'Terraced': 2}
+train['city'] = train['city'].map(city_mapping)
+validation['city'] = validation['city'].map(city_mapping)
+train['house_type'] = train['house_type'].map(house_type_mapping)
+validation['house_type'] = validation['house_type'].map(house_type_mapping)
+train['sale_date'] = pd.to_datetime(train['sale_date'])
+train['day'] = train['sale_date'].dt.day
+train['month'] = train['sale_date'].dt.month
+train['year'] = train['sale_date'].dt.year
+validation['sale_date'] = pd.to_datetime(validation['sale_date'])
+validation['day'] = validation['sale_date'].dt.day
+validation['month'] = validation['sale_date'].dt.month
+validation['year'] = validation['sale_date'].dt.year
+X_train = train.drop(columns=['house_id', 'sale_price', 'sale_date'])
+y_train = train['sale_price']
+X_validation = validation.drop(columns=['house_id', 'sale_date'])
+baseline_model = LinearRegression()
+baseline_model.fit(X_train, y_train)
+
+validation['price'] = baseline_model.predict(X_validation)
+base_result = validation[['house_id', 'price']]
+base_result['price'] = base_result['price'].round(1)
+base_result
